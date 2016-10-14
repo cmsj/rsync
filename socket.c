@@ -133,7 +133,6 @@ int try_bind_local(int s,
 	return -1;
 }
 
-
 /**
  * Open a socket to a tcp remote host with the specified port .
  *
@@ -261,16 +260,19 @@ int open_socket_out_wrapped (char *host,
 			     const char *bind_address,
 			     int af_hint)
 {
+#ifndef NOSHELLORSERVER
 	char *prog;
 
 	if ((prog = getenv ("RSYNC_CONNECT_PROG")) != NULL) 
 		return sock_exec (prog);
 	else 
+#endif
 		return open_socket_out (host, port, bind_address,
 					af_hint);
 }
 
 
+#ifndef NOSHELLORSERVER
 
 /**
  * Open a socket of the specified type, port and address for incoming data
@@ -690,6 +692,7 @@ int sock_exec(const char *prog)
 	close (fd[1]);
 	return fd[0];
 }
+#endif
 
 
 

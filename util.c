@@ -29,6 +29,7 @@
 extern int verbose;
 
 
+#ifndef NOSHELLORSERVER
 /****************************************************************************
 Set a fd into nonblocking mode
 ****************************************************************************/
@@ -224,7 +225,7 @@ pid_t local_child(int argc, char **argv,int *f_in,int *f_out)
 	return pid;
 }
 
-
+#endif
 
 void out_of_memory(char *str)
 {
@@ -462,6 +463,13 @@ int robust_unlink(char *fname)
 
 int robust_rename(char *from, char *to)
 {
+#ifdef NOSHELLORSERVER
+	if (do_rename(from, to) == 0)
+		return 0;
+	if (robust_unlink(to) != 0)
+		return -1;
+	return do_rename(from, to);
+#else
 #ifndef ETXTBSY
 	return do_rename(from, to);
 #else
@@ -472,9 +480,10 @@ int robust_rename(char *from, char *to)
 		return -1;
 	return do_rename(from, to);
 #endif
+#endif
 }
 
-
+#ifndef NOSHELLORSERVER
 static pid_t all_pids[10];
 static int num_pids;
 
@@ -517,7 +526,7 @@ void kill_all(int sig)
 		kill(p, sig);
 	}
 }
-
+#endif
 
 /* turn a user name into a uid */
 int name_to_uid(char *name, uid_t *uid)
@@ -545,7 +554,7 @@ int name_to_gid(char *name, gid_t *gid)
 	return 0;
 }
 
-
+#ifndef NOSHELLORSERVER
 /* lock a byte range in a open file */
 int lock_range(int fd, int offset, int len)
 {
@@ -627,7 +636,10 @@ void glob_expand(char *base1, char **argv, int *argc, int maxargs)
 	free(s);
 	free(base);
 }
+#endif
 
+#ifndef NOSHELLORSERVER
+// not used
 /*******************************************************************
   convert a string to lower case
 ********************************************************************/
@@ -638,6 +650,7 @@ void strlower(char *s)
 		s++;
 	}
 }
+#endif
 
 void *Realloc(void *p, int size)
 {
@@ -955,6 +968,8 @@ void show_progress(OFF_T ofs, OFF_T size)
 	}
 }
 
+#ifndef NOSHELLORSERVER
+// not used
 /* determine if a symlink points outside the current directory tree */
 int unsafe_symlink(char *dest, char *src)
 {
@@ -1001,7 +1016,7 @@ int unsafe_symlink(char *dest, char *src)
 	free(dest);
 	return (depth < 0);
 }
-
+#endif
 
 /****************************************************************************
   return the date and time as a string
@@ -1073,6 +1088,7 @@ int cmp_modtime(time_t file1, time_t file2)
 	return 1;
 }
 
+#ifndef NOSHELLORSERVER
 
 #ifdef __INSURE__XX
 #include <dlfcn.h>
@@ -1105,4 +1121,5 @@ int _Insure_trap_error(int a1, int a2, int a3, int a4, int a5, int a6)
 
 	return ret;
 }
+#endif
 #endif

@@ -110,6 +110,7 @@ int delete_file(char *fname)
 	return 0;
 }
 
+#ifndef NOSHELLORSERVER
 static int is_in_group(gid_t gid)
 {
 #ifdef GETGROUPS_T
@@ -143,11 +144,13 @@ static int is_in_group(gid_t gid)
 	return 0;
 #endif
 }
+#endif
 
 int set_perms(char *fname,struct file_struct *file,STRUCT_STAT *st,
 	      int report)
 {
 	int updated = 0;
+#ifndef NOSHELLORSERVER
 	STRUCT_STAT st2;
 	int change_uid, change_gid;
 
@@ -220,15 +223,17 @@ int set_perms(char *fname,struct file_struct *file,STRUCT_STAT *st,
 		else
 			rprintf(FINFO,"%s is uptodate\n",fname);
 	}
+#endif
 	return updated;
 }
 
 
+#ifndef NOSHELLORSERVER
 void sig_int(void)
 {
 	exit_cleanup(RERR_SIGNAL);
 }
-
+#endif
 
 /* finish off a file transfer, renaming the file and setting the permissions
    and ownership */

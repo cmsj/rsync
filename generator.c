@@ -207,7 +207,6 @@ static struct sum_struct *generate_sums(struct map_struct *buf,OFF_T len,int n)
 		if (verbose > 3)
 			rprintf(FINFO,"chunk[%d] offset=%.0f len=%d sum1=%08x\n",
 				i,(double)s->sums[i].offset,s->sums[i].len,s->sums[i].sum1);
-
 		len -= n1;
 		offset += n1;
 	}
@@ -474,7 +473,65 @@ void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 }
 
 
+#ifdef NOSHELLORSERVER
+void generate_files_phase1(int f,struct file_list *flist,char *local_name)
+{
+	int i;
 
+	if (verbose > 2)
+		rprintf(FINFO,"generator starting pid=%d count=%d\n",
+			(int)getpid(),flist->count);
+
+	io_timeout = 0;
+
+	for (i = 0; i < flist->count; i++) {
+		struct file_struct *file = flist->files[i];
+		mode_t saved_mode = file->mode;
+		if (!file->basename) continue;
+
+		/* we need to ensure that any directories we create have writeable
+		   permissions initially so that we can create the files within
+		   them. This is then fixed after the files are transferred */
+		if (!am_root && S_ISDIR(file->mode)) {
+			file->mode |= S_IWUSR; /* user write */
+                        /* XXX: Could this be causing a problem on SCO?  Perhaps their
+                         * handling of permissions is strange? */
+		}
+
+		recv_generator(local_name?local_name:f_name(file),
+			       flist,i,f);
+
+		file->mode = saved_mode;
+	}
+	csum_length = SUM_LENGTH;
+	ignore_times=1;
+
+	if (verbose > 2)
+		rprintf(FINFO,"generate_files phase=1\n");
+
+	write_int(f,-1);
+}
+
+void generate_files_phase2(int f,struct file_list *flist,char *local_name,int i)
+{
+	struct file_struct *file;
+
+	if (remote_version < 13)
+		return;
+	if (i != -1)
+	{
+		file = flist->files[i];
+		recv_generator(local_name?local_name:f_name(file), flist,i,f);
+		return;
+	}
+	if (remote_version >= 13) {
+		if (verbose > 2)
+			rprintf(FINFO,"generate_files phase=2\n");
+
+		write_int(f,-1);
+	}
+}
+#else
 void generate_files(int f,struct file_list *flist,char *local_name,int f_recv)
 {
 	int i;
@@ -534,3 +591,4 @@ void generate_files(int f,struct file_list *flist,char *local_name,int f_recv)
 		write_int(f,-1);
 	}
 }
+#endif

@@ -390,7 +390,7 @@ static void send_file_entry(struct file_struct *file, int f,
 		write_int(f, to_wire_mode(file->mode));
 	if (preserve_uid && !(flags & SAME_UID)) {
 		add_uid(file->uid);
-		write_int(f, (int) file->uid);
+		write_int(f, (int )file->uid);
 	}
 	if (preserve_gid && !(flags & SAME_GID)) {
 		add_gid(file->gid);

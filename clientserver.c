@@ -165,7 +165,7 @@ int start_socket_client(char *host, char *path, int argc, char *argv[])
 }
 
 
-
+#ifndef NOSHELLORSERVER
 static int rsync_module(int fd, int i)
 {
 	int argc=0;
@@ -578,4 +578,5 @@ int daemon_main(void)
 	start_accept_loop(rsync_port, start_daemon);
 	return -1;
 }
+#endif
 

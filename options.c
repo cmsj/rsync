@@ -135,7 +135,7 @@ static void print_rsync_version(enum logcode f)
         char const *hardlinks = "no ";
         char const *links = "no ";
 	char const *ipv6 = "no ";
-	STRUCT_STAT *dumstat;
+	STRUCT_STAT *dumstat = NULL;
 
 #ifdef HAVE_SOCKETPAIR
         got_socketpair = "";
@@ -190,13 +190,17 @@ void usage(enum logcode F)
 
   rprintf(F,"\nrsync is a file transfer program capable of efficient remote update\nvia a fast differencing algorithm.\n\n");
 
+#ifndef NOSHELLORSERVER
   rprintf(F,"Usage: rsync [OPTION]... SRC [SRC]... [USER@]HOST:DEST\n");
   rprintf(F,"  or   rsync [OPTION]... [USER@]HOST:SRC DEST\n");
   rprintf(F,"  or   rsync [OPTION]... SRC [SRC]... DEST\n");
+#endif
   rprintf(F,"  or   rsync [OPTION]... [USER@]HOST::SRC [DEST]\n");
   rprintf(F,"  or   rsync [OPTION]... SRC [SRC]... [USER@]HOST::DEST\n");
+#ifndef NOSHELLORSERVER
   rprintf(F,"  or   rsync [OPTION]... rsync://[USER@]HOST[:PORT]/SRC [DEST]\n");
   rprintf(F,"SRC on single-colon remote HOST will be expanded by remote shell\n");
+#endif
   rprintf(F,"SRC on server remote HOST may contain shell wildcards or multiple\n");
   rprintf(F,"  sources separated by space as long as they have same top-level\n");
   rprintf(F,"\nOptions\n");
@@ -206,10 +210,13 @@ void usage(enum logcode F)
   rprintf(F," -a, --archive               archive mode\n");
   rprintf(F," -r, --recursive             recurse into directories\n");
   rprintf(F," -R, --relative              use relative path names\n");
+#ifndef NOSHELLORSERVER
   rprintf(F," -b, --backup                make backups (default %s suffix)\n",BACKUP_SUFFIX);
   rprintf(F,"     --backup-dir            make backups into this directory\n");
   rprintf(F,"     --suffix=SUFFIX         override backup suffix\n");  
+#endif
   rprintf(F," -u, --update                update only (don't overwrite newer files)\n");
+#ifndef NOSHELLORSERVER
   rprintf(F," -l, --links                 copy symlinks as symlinks\n");
   rprintf(F," -L, --copy-links            copy the referent of symlinks\n");
   rprintf(F,"     --copy-unsafe-links     copy links outside the source tree\n");
@@ -219,9 +226,13 @@ void usage(enum logcode F)
   rprintf(F," -o, --owner                 preserve owner (root only)\n");
   rprintf(F," -g, --group                 preserve group\n");
   rprintf(F," -D, --devices               preserve devices (root only)\n");
+#endif
   rprintf(F," -t, --times                 preserve times\n");  
+#ifndef NOSHELLORSERVER
   rprintf(F," -S, --sparse                handle sparse files efficiently\n");
+#endif
   rprintf(F," -n, --dry-run               show what would have been transferred\n");
+#ifndef NOSHELLORSERVER
   rprintf(F," -W, --whole-file            copy whole files, no incremental checks\n");
   rprintf(F,"     --no-whole-file         turn off --whole-file\n");
   rprintf(F," -x, --one-file-system       don't cross filesystem boundaries\n");
@@ -229,43 +240,56 @@ void usage(enum logcode F)
   rprintf(F," -e, --rsh=COMMAND           specify rsh replacement\n");
   rprintf(F,"     --rsync-path=PATH       specify path to rsync on the remote machine\n");
   rprintf(F," -C, --cvs-exclude           auto ignore files in the same way CVS does\n");
+#endif
   rprintf(F,"     --existing              only update files that already exist\n");
   rprintf(F,"     --ignore-existing       ignore files that already exist on the receiving side\n");
   rprintf(F,"     --delete                delete files that don't exist on the sending side\n");
   rprintf(F,"     --delete-excluded       also delete excluded files on the receiving side\n");
   rprintf(F,"     --delete-after          delete after transferring, not before\n");
   rprintf(F,"     --ignore-errors         delete even if there are IO errors\n");
+#ifndef NOSHELLORSERVER
   rprintf(F,"     --max-delete=NUM        don't delete more than NUM files\n");
+#endif
   rprintf(F,"     --partial               keep partially transferred files\n");
   rprintf(F,"     --force                 force deletion of directories even if not empty\n");
+#ifndef NOSHELLORSERVER
   rprintf(F,"     --numeric-ids           don't map uid/gid values by user/group name\n");
   rprintf(F,"     --timeout=TIME          set IO timeout in seconds\n");
+#endif
   rprintf(F," -I, --ignore-times          don't exclude files that match length and time\n");
   rprintf(F,"     --size-only             only use file size when determining if a file should be transferred\n");
   rprintf(F,"     --modify-window=NUM     Timestamp window (seconds) for file match (default=%d)\n",modify_window);
+#ifndef NOSHELLORSERVER
   rprintf(F," -T  --temp-dir=DIR          create temporary files in directory DIR\n");
   rprintf(F,"     --compare-dest=DIR      also compare destination files relative to DIR\n");
+#endif
   rprintf(F," -P                          equivalent to --partial --progress\n");
+#ifndef NOSHELLORSERVER
   rprintf(F," -z, --compress              compress file data\n");
   rprintf(F,"     --exclude=PATTERN       exclude files matching PATTERN\n");
   rprintf(F,"     --exclude-from=FILE     exclude patterns listed in FILE\n");
   rprintf(F,"     --include=PATTERN       don't exclude files matching PATTERN\n");
   rprintf(F,"     --include-from=FILE     don't exclude patterns listed in FILE\n");
+#endif
   rprintf(F,"     --version               print version number\n");  
+#ifndef NOSHELLORSERVER
   rprintf(F,"     --daemon                run as a rsync daemon\n");  
   rprintf(F,"     --no-detach             do not detach from the parent\n");  
   rprintf(F,"     --address=ADDRESS       bind to the specified address\n");  
   rprintf(F,"     --config=FILE           specify alternate rsyncd.conf file\n");  
+#endif
   rprintf(F,"     --port=PORT             specify alternate rsyncd port number\n");
   rprintf(F,"     --blocking-io           use blocking IO for the remote shell\n");  
   rprintf(F,"     --no-blocking-io        turn off --blocking-io\n");  
   rprintf(F,"     --stats                 give some file transfer stats\n");  
   rprintf(F,"     --progress              show progress during transfer\n");  
+#ifndef NOSHELLORSERVER
   rprintf(F,"     --log-format=FORMAT     log file transfers using specified format\n");  
   rprintf(F,"     --password-file=FILE    get password from FILE\n");
   rprintf(F,"     --bwlimit=KBPS          limit I/O bandwidth, KBytes per second\n");
   rprintf(F,"     --write-batch=PREFIX    write batch fileset starting with PREFIX\n");
   rprintf(F,"     --read-batch=PREFIX     read batch fileset starting with PREFIX\n");
+#endif
   rprintf(F," -h, --help                  show this help screen\n");
 #ifdef INET6
   rprintf(F," -4                          prefer IPv4\n");
@@ -292,31 +316,42 @@ enum {OPT_VERSION = 1000, OPT_SUFFIX, OPT_SENDER, OPT_SERVER, OPT_EXCLUDE,
 static struct poptOption long_options[] = {
   /* longName, shortName, argInfo, argPtr, value, descrip, argDesc */
   {"version",          0,  POPT_ARG_NONE,   0,             OPT_VERSION, 0, 0},
+#ifndef NOSHELLORSERVER
   {"suffix",           0,  POPT_ARG_STRING, &backup_suffix,	0, 0, 0 },
   {"rsync-path",       0,  POPT_ARG_STRING, &rsync_path,	0, 0, 0 },
   {"password-file",    0,  POPT_ARG_STRING, &password_file,	0, 0, 0 },
+#endif
   {"ignore-times",    'I', POPT_ARG_NONE,   &ignore_times , 0, 0, 0 },
   {"size-only",        0,  POPT_ARG_NONE,   &size_only , 0, 0, 0 },
   {"modify-window",    0,  POPT_ARG_INT,    &modify_window, OPT_MODIFY_WINDOW, 0, 0 },
+#ifndef NOSHELLORSERVER
   {"one-file-system", 'x', POPT_ARG_NONE,   &one_file_system , 0, 0, 0 },
+#endif
   {"delete",           0,  POPT_ARG_NONE,   &delete_mode , 0, 0, 0 },
   {"existing",         0,  POPT_ARG_NONE,   &only_existing , 0, 0, 0 },
   {"ignore-existing",  0,  POPT_ARG_NONE,   &opt_ignore_existing , 0, 0, 0 },
   {"delete-after",     0,  POPT_ARG_NONE,   &delete_after , 0, 0, 0 },
   {"delete-excluded",  0,  POPT_ARG_NONE,   0,              OPT_DELETE_EXCLUDED, 0, 0 },
   {"force",            0,  POPT_ARG_NONE,   &force_delete , 0, 0, 0 },
+#ifndef NOSHELLORSERVER
   {"numeric-ids",      0,  POPT_ARG_NONE,   &numeric_ids , 0, 0, 0 },
   {"exclude",          0,  POPT_ARG_STRING, 0,              OPT_EXCLUDE, 0, 0 },
   {"include",          0,  POPT_ARG_STRING, 0,              OPT_INCLUDE, 0, 0 },
   {"exclude-from",     0,  POPT_ARG_STRING, 0,              OPT_EXCLUDE_FROM, 0, 0 },
   {"include-from",     0,  POPT_ARG_STRING, 0,              OPT_INCLUDE_FROM, 0, 0 },
   {"safe-links",       0,  POPT_ARG_NONE,   &safe_symlinks , 0, 0, 0 },
+#endif
   {"help",            'h', POPT_ARG_NONE,   0,              'h', 0, 0 },
+#ifndef NOSHELLORSERVER
   {"backup",          'b', POPT_ARG_NONE,   &make_backups , 0, 0, 0 },
+#endif
   {"dry-run",         'n', POPT_ARG_NONE,   &dry_run , 0, 0, 0 },
+#ifndef NOSHELLORSERVER
   {"sparse",          'S', POPT_ARG_NONE,   &sparse_files , 0, 0, 0 },
   {"cvs-exclude",     'C', POPT_ARG_NONE,   &cvs_exclude , 0, 0, 0 },
+#endif
   {"update",          'u', POPT_ARG_NONE,   &update_only , 0, 0, 0 },
+#ifndef NOSHELLORSERVER
   {"links",           'l', POPT_ARG_NONE,   &preserve_links , 0, 0, 0 },
   {"copy-links",      'L', POPT_ARG_NONE,   &copy_links , 0, 0, 0 },
   {"whole-file",      'W', POPT_ARG_NONE,   0,              OPT_WHOLE_FILE, 0, 0 },
@@ -326,15 +361,19 @@ static struct poptOption long_options[] = {
   {"owner",           'o', POPT_ARG_NONE,   &preserve_uid , 0, 0, 0 },
   {"group",           'g', POPT_ARG_NONE,   &preserve_gid , 0, 0, 0 },
   {"devices",         'D', POPT_ARG_NONE,   &preserve_devices , 0, 0, 0 },
+#endif
   {"times",           't', POPT_ARG_NONE,   &preserve_times , 0, 0, 0 },
   {"checksum",        'c', POPT_ARG_NONE,   &always_checksum , 0, 0, 0 },
   {"verbose",         'v', POPT_ARG_NONE,   0,               'v', 0, 0 },
   {"quiet",           'q', POPT_ARG_NONE,   0,               'q', 0, 0 },
   {"archive",         'a', POPT_ARG_NONE,   0,               'a', 0, 0 }, 
+#ifndef NOSHELLORSERVER
   {"server",           0,  POPT_ARG_NONE,   &am_server , 0, 0, 0 },
   {"sender",           0,  POPT_ARG_NONE,   0,               OPT_SENDER, 0, 0 },
+#endif
   {"recursive",       'r', POPT_ARG_NONE,   &recurse , 0, 0, 0 },
   {"relative",        'R', POPT_ARG_NONE,   &relative_paths , 0, 0, 0 },
+#ifndef NOSHELLORSERVER
   {"rsh",             'e', POPT_ARG_STRING, &shell_cmd , 0, 0, 0 },
   {"block-size",      'B', POPT_ARG_INT,    &block_size , 0, 0, 0 },
   {"max-delete",       0,  POPT_ARG_INT,    &max_delete , 0, 0, 0 },
@@ -345,6 +384,7 @@ static struct poptOption long_options[] = {
   {"compress",        'z', POPT_ARG_NONE,   &do_compression , 0, 0, 0 },
   {"daemon",           0,  POPT_ARG_NONE,   &am_daemon , 0, 0, 0 },
   {"no-detach",        0,  POPT_ARG_NONE,   &no_detach , 0, 0, 0 },
+#endif
   {"stats",            0,  POPT_ARG_NONE,   &do_stats , 0, 0, 0 },
   {"progress",         0,  POPT_ARG_NONE,   &do_progress , 0, 0, 0 },
   {"partial",          0,  POPT_ARG_NONE,   &keep_partial , 0, 0, 0 },
@@ -352,8 +392,11 @@ static struct poptOption long_options[] = {
   {"blocking-io",      0,  POPT_ARG_NONE,   &blocking_io , 0, 0, 0 },
   {"no-blocking-io",   0,  POPT_ARG_NONE,   0, 		     OPT_NO_BLOCKING_IO, 0, 0 },
   {0,                 'P', POPT_ARG_NONE,   0,               'P', 0, 0 },
+#ifndef NOSHELLORSERVER
   {"config",           0,  POPT_ARG_STRING, &config_file , 0, 0, 0 },
+#endif
   {"port",             0,  POPT_ARG_INT,    &rsync_port , 0, 0, 0 },
+#ifndef NOSHELLORSERVER
   {"log-format",       0,  POPT_ARG_STRING, &log_format , 0, 0, 0 },
   {"bwlimit",          0,  POPT_ARG_INT,    &bwlimit , 0, 0, 0 },
   {"address",          0,  POPT_ARG_STRING, &bind_address, 0, 0, 0 },
@@ -361,6 +404,7 @@ static struct poptOption long_options[] = {
   {"hard-links",      'H', POPT_ARG_NONE,   &preserve_hard_links , 0, 0, 0 },
   {"read-batch",       0,  POPT_ARG_STRING, &batch_prefix, OPT_READ_BATCH, 0, 0 },
   {"write-batch",      0,  POPT_ARG_STRING, &batch_prefix, OPT_WRITE_BATCH, 0, 0 },
+#endif
 #ifdef INET6
   {0,		      '4', POPT_ARG_VAL,    &default_af_hint,   AF_INET , 0, 0 },
   {0,		      '6', POPT_ARG_VAL,    &default_af_hint,   AF_INET6 , 0, 0 },
@@ -690,6 +734,11 @@ void server_options(char **args,int *argc)
 	if (x != 1) args[ac++] = argstr;
 
 	if (block_size != BLOCK_SIZE) {
+#ifdef NOSHELLORSERVER
+        /* FIXME: cmsj: is this necessary? */
+		if (block_size > CHUNK_SIZE/2)
+			block_size = CHUNK_SIZE/2;
+#endif
 		snprintf(bsize,sizeof(bsize),"-B%d",block_size);
 		args[ac++] = bsize;
 	}    

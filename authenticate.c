@@ -48,6 +48,7 @@ static void base64_encode(char *buf, int len, char *out)
 	}
 }
 
+#ifndef NOSHELLORSERVER
 /* create a 16 byte challenge buffer */
 static void gen_challenge(char *addr, char *challenge)
 {
@@ -132,6 +133,7 @@ static int get_secret(int module, char *user, char *secret, int len)
 	strlcpy(secret, pass, len);
 	return 1;
 }
+#endif
 
 static char *getpassf(char *filename)
 {
@@ -194,6 +196,7 @@ static void generate_hash(char *in, char *challenge, char *out)
 	base64_encode(buf, 16, out);
 }
 
+#ifndef NOSHELLORSERVER
 /* possible negotiate authentication with the client. Use "leader" to
    start off the auth if necessary 
 
@@ -261,7 +264,7 @@ char *auth_server(int fd, int module, char *addr, char *leader)
 
 	return NULL;
 }
-
+#endif
 
 void auth_client(int fd, char *user, char *challenge)
 {
@@ -275,7 +278,11 @@ void auth_client(int fd, char *user, char *challenge)
 		/* XXX: cyeoh says that getpass is deprecated, because
 		   it may return a truncated password on some systems,
 		   and it is not in the LSB. */
+#ifndef NOSHELLORSERVER
 		pass = getpass("Password: ");
+#else
+		pass = "";
+#endif
 	}
 
 	if (!pass || !*pass) {

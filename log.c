@@ -143,6 +143,8 @@ static void logit(int priority, char *buf)
 	}
 }
 
+#ifdef NOSHELLORSERVER
+// not used
 void log_init(void)
 {
 	static int initialised;
@@ -208,6 +210,7 @@ void set_error_fd(int fd)
 	log_error_fd = fd;
 	set_nonblocking(log_error_fd);
 }
+#endif
 
 /* this is the underlying (unformatted) rsync debugging function. Call
    it with FINFO, FERROR or FLOG */

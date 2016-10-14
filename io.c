@@ -218,8 +218,11 @@ static int read_timeout (int fd, char *buf, size_t len)
 
 		if (!FD_ISSET(fd, &fds)) continue;
 
+#ifdef NOSHELLORSERVER
+		n = recv(fd, buf, len, 0);
+#else
 		n = read(fd, buf, len);
-
+#endif
 		if (n > 0) {
 			buf += n;
 			len -= n;
@@ -349,7 +352,10 @@ int64 read_longint(int f)
 {
 	extern int remote_version;
 	int64 ret;
+#ifndef NO_INT64
+    // FIXME: cmsj: figure out why this is here
 	char b[8];
+#endif
 	ret = read_int(f);
 
 	if ((int32)ret != (int32)0xffffffff) {
@@ -440,8 +446,11 @@ static void writefd_unbuffered(int fd,char *buf,size_t len)
 		if (FD_ISSET(fd, &w_fds)) {
 			int ret;
 			size_t n = len-total;
+#ifdef NOSHELLORSERVER
+			ret = send(fd, buf+total, n, 0);
+#else
 			ret = write(fd,buf+total,n);
-
+#endif
 			if (ret == -1 && errno == EINTR) {
 				continue;
 			}

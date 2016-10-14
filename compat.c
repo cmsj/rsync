@@ -32,7 +32,6 @@ extern int preserve_times;
 extern int always_checksum;
 extern int checksum_seed;
 
-
 extern int remote_version;
 extern int verbose;
 

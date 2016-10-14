@@ -27,25 +27,7 @@ struct stats stats;
 
 extern int verbose;
 
-static void show_malloc_stats(void);
-
-/****************************************************************************
-wait for a process to exit, calling io_flush while waiting
-****************************************************************************/
-void wait_process(pid_t pid, int *status)
-{
-	while (waitpid(pid, status, WNOHANG) == 0) {
-		msleep(20);
-		io_flush();
-	}
-        
-        /* TODO: If the child exited on a signal, then log an
-         * appropriate error message.  Perhaps we should also accept a
-         * message describing the purpose of the child.  Also indicate
-         * this to the caller so that thhey know something went
-         * wrong.  */
-	*status = WEXITSTATUS(*status);
-}
+char init_dir[MAXPATHLEN];
 
 static void report(int f)
 {
@@ -59,7 +41,6 @@ static void report(int f)
 
 	if (do_stats) {
 		/* These come out from every process */
-		show_malloc_stats();
 		show_flist_stats();
 	}
 
@@ -73,7 +54,7 @@ static void report(int f)
 		if (am_sender && send_stats) {
 			int64 w;
 			/* store total_written in a temporary
-			    because write_longint changes it */
+				because write_longint changes it */
 			w = stats.total_written;
 			write_longint(f,stats.total_read);
 			write_longint(f,w);
@@ -132,122 +113,6 @@ static void report(int f)
 	fflush(stderr);
 }
 
-
-/**
- * If our C library can get malloc statistics, then show them to FINFO
- **/
-static void show_malloc_stats(void)
-{
-#ifdef HAVE_MALLINFO
-	struct mallinfo mi;
-	extern int am_server;
-	extern int am_sender;
-	extern int am_daemon;
-
-	mi = mallinfo();
-
-	rprintf(FINFO, RSYNC_NAME "[%d] (%s%s%s) heap statistics:\n",
-		getpid(),
-		am_server ? "server " : "",
-		am_daemon ? "daemon " : "",
-		am_sender ? "sender" : "receiver");
-	rprintf(FINFO, "  arena:     %10d   (bytes from sbrk)\n", mi.arena);
-	rprintf(FINFO, "  ordblks:   %10d   (chunks not in use)\n", mi.ordblks);
-	rprintf(FINFO, "  smblks:    %10d\n", mi.smblks);
-	rprintf(FINFO, "  hblks:     %10d   (chunks from mmap)\n", mi.hblks);
-	rprintf(FINFO, "  hblkhd:    %10d   (bytes from mmap)\n", mi.hblkhd);
-	rprintf(FINFO, "  usmblks:   %10d\n", mi.usmblks);
-	rprintf(FINFO, "  fsmblks:   %10d\n", mi.fsmblks);
-	rprintf(FINFO, "  uordblks:  %10d   (bytes used)\n", mi.uordblks);
-	rprintf(FINFO, "  fordblks:  %10d   (bytes free)\n", mi.fordblks);
-	rprintf(FINFO, "  keepcost:  %10d   (bytes in releasable chunk)\n", mi.keepcost);
-#endif /* HAVE_MALLINFO */
-}
-
-
-/* Start the remote shell.   cmd may be NULL to use the default. */
-static pid_t do_cmd(char *cmd,char *machine,char *user,char *path,int *f_in,int *f_out)
-{
-	char *args[100];
-	int i,argc=0;
-	pid_t ret;
-	char *tok,*dir=NULL;
-	extern int local_server;
-	extern char *rsync_path;
-	extern int blocking_io;
-	extern int read_batch;
-
-	if (!read_batch && !local_server) {
-		if (!cmd)
-			cmd = getenv(RSYNC_RSH_ENV);
-		if (!cmd)
-			cmd = RSYNC_RSH;
-		cmd = strdup(cmd);
-		if (!cmd) 
-			goto oom;
-
-		for (tok=strtok(cmd," ");tok;tok=strtok(NULL," ")) {
-			args[argc++] = tok;
-		}
-
-#if HAVE_REMSH
-		/* remsh (on HPUX) takes the arguments the other way around */
-		args[argc++] = machine;
-		if (user) {
-			args[argc++] = "-l";
-			args[argc++] = user;
-		}
-#else
-		if (user) {
-			args[argc++] = "-l";
-			args[argc++] = user;
-		}
-		args[argc++] = machine;
-#endif
-
-		args[argc++] = rsync_path;
-
-		if ((blocking_io == -1) && (strcmp(cmd, RSYNC_RSH) == 0))
-			blocking_io = 1;
-
-		server_options(args,&argc);
-
-	}
-
-	args[argc++] = ".";
-
-	if (path && *path) 
-		args[argc++] = path;
-
-	args[argc] = NULL;
-
-	if (verbose > 3) {
-		rprintf(FINFO,"cmd=");
-		for (i=0;i<argc;i++)
-			rprintf(FINFO,"%s ",args[i]);
-		rprintf(FINFO,"\n");
-	}
-
-	if (local_server) {
-		if (read_batch)
-		    create_flist_from_batch(); /* sets batch_flist */
-		ret = local_child(argc, args, f_in, f_out);
-	} else {
-		ret = piped_child(args,f_in,f_out);
-	}
-
-	if (dir) free(dir);
-
-	return ret;
-
-oom:
-	out_of_memory("do_cmd");
-	return 0; /* not reached */
-}
-
-
-
-
 static char *get_local_name(struct file_list *flist,char *name)
 {
 	STRUCT_STAT st;
@@ -297,65 +162,9 @@ static char *get_local_name(struct file_list *flist,char *name)
 	return NULL;
 }
 
-
-
-
-static void do_server_sender(int f_in, int f_out, int argc,char *argv[])
-{
-	int i;
-	struct file_list *flist;
-	char *dir = argv[0];
-	extern int relative_paths;
-	extern int recurse;
-	extern int remote_version;
-
-	if (verbose > 2)
-		rprintf(FINFO,"server_sender starting pid=%d\n",(int)getpid());
-  
-	if (!relative_paths && !push_dir(dir, 0)) {
-		rprintf(FERROR,"push_dir %s: %s (3)\n",dir,strerror(errno));
-		exit_cleanup(RERR_FILESELECT);
-	}
-	argc--;
-	argv++;
-  
-	if (strcmp(dir,".")) {
-		int l = strlen(dir);
-		if (strcmp(dir,"/") == 0) 
-			l = 0;
-		for (i=0;i<argc;i++)
-			argv[i] += l+1;
-	}
-
-	if (argc == 0 && recurse) {
-		argc=1;
-		argv--;
-		argv[0] = ".";
-	}
-	
-	flist = send_file_list(f_out,argc,argv);
-	if (!flist || flist->count == 0) {
-		exit_cleanup(0);
-	}
-
-	send_files(flist,f_out,f_in);
-	io_flush();
-	report(f_out);
-	if (remote_version >= 24) {
-		/* final goodbye message */		
- 		read_int(f_in);
- 	}
-	io_flush();
-	exit_cleanup(0);
-}
-
-
 static int do_recv(int f_in,int f_out,struct file_list *flist,char *local_name)
 {
-	int pid;
 	int status=0;
-	int recv_pipe[2];
-	int error_pipe[2];
 	extern int preserve_hard_links;
 	extern int delete_after;
 	extern int recurse;
@@ -372,155 +181,24 @@ static int do_recv(int f_in,int f_out,struct file_list *flist,char *local_name)
 		}
 	}
 
-	if (fd_pair(recv_pipe) < 0) {
-		rprintf(FERROR,"pipe failed in do_recv\n");
-		exit_cleanup(RERR_SOCKETIO);
-	}
+	// send the checksums and ensure local permissions
+	generate_files_phase1(f_out,flist,local_name);
 
-	if (fd_pair(error_pipe) < 0) {
-		rprintf(FERROR,"error pipe failed in do_recv\n");
-		exit_cleanup(RERR_SOCKETIO);
-	}
-  
+	// get the data
+	recv_gen_files(f_in,f_out,flist,local_name);
 	io_flush();
-
-	if ((pid=do_fork()) == 0) {
-		close(recv_pipe[0]);
-		close(error_pipe[0]);
-		if (f_in != f_out) close(f_out);
-
-		/* we can't let two processes write to the socket at one time */
-		io_multiplexing_close();
-
-		/* set place to send errors */
-		set_error_fd(error_pipe[1]);
-
-		recv_files(f_in,flist,local_name,recv_pipe[1]);
-		io_flush();
-		report(f_in);
-
-		write_int(recv_pipe[1],1);
-		close(recv_pipe[1]);
-		io_flush();
-		/* finally we go to sleep until our parent kills us
-		   with a USR2 signal. We sleep for a short time as on
-		   some OSes a signal won't interrupt a sleep! */
-		while (msleep(20))
-			;
-	}
-
-	close(recv_pipe[1]);
-	close(error_pipe[1]);
-	if (f_in != f_out) close(f_in);
+	report(f_in);
+	io_flush();
 
 	io_start_buffering(f_out);
 
-	io_set_error_fd(error_pipe[0]);
-
-	generate_files(f_out,flist,local_name,recv_pipe[0]);
-
-	read_int(recv_pipe[0]);
-	close(recv_pipe[0]);
 	if (remote_version >= 24) {
 		/* send a final goodbye message */
 		write_int(f_out, -1);
 	}
 	io_flush();
-
-	kill(pid, SIGUSR2);
-	wait_process(pid, &status);
 	return status;
 }
-
-
-static void do_server_recv(int f_in, int f_out, int argc,char *argv[])
-{
-	int status;
-	struct file_list *flist;
-	char *local_name=NULL;
-	char *dir = NULL;
-	extern int delete_mode;
-	extern int delete_excluded;
-	extern int am_daemon;
-	extern int module_id;
-	extern int am_sender;
-	extern int read_batch;
-	extern struct file_list *batch_flist;
-
-	if (verbose > 2)
-		rprintf(FINFO,"server_recv(%d) starting pid=%d\n",argc,(int)getpid());
-
-	if (am_daemon && lp_read_only(module_id) && !am_sender) {
-		rprintf(FERROR,"ERROR: module is read only\n");
-		exit_cleanup(RERR_SYNTAX);
-		return;
-	}
-
-	
-	if (argc > 0) {
-		dir = argv[0];
-		argc--;
-		argv++;
-		if (!am_daemon && !push_dir(dir, 0)) {
-			rprintf(FERROR,"push_dir %s : %s (4)\n",
-				dir,strerror(errno));
-			exit_cleanup(RERR_FILESELECT);
-		}    
-	}
-
-	if (delete_mode && !delete_excluded)
-		recv_exclude_list(f_in);
-
-	if (read_batch)
-	    flist = batch_flist;
-	else
-	    flist = recv_file_list(f_in);
-	if (!flist) {
-		rprintf(FERROR,"server_recv: recv_file_list error\n");
-		exit_cleanup(RERR_FILESELECT);
-	}
-	
-	if (argc > 0) {    
-		if (strcmp(dir,".")) {
-			argv[0] += strlen(dir);
-			if (argv[0][0] == '/') argv[0]++;
-		}
-		local_name = get_local_name(flist,argv[0]);
-	}
-
-	status = do_recv(f_in,f_out,flist,local_name);
-	exit_cleanup(status);
-}
-
-
-void start_server(int f_in, int f_out, int argc, char *argv[])
-{
-	extern int cvs_exclude;
-	extern int am_sender;
-	extern int remote_version;
-	extern int read_batch;
-
-	setup_protocol(f_out, f_in);
-
-	set_nonblocking(f_in);
-	set_nonblocking(f_out);
-
-	if (remote_version >= 23)
-		io_start_multiplex_out(f_out);
-
-	if (am_sender) {
-		if (!read_batch) {
-		    recv_exclude_list(f_in);
-		    if (cvs_exclude)
-			add_cvs_excludes();
-		}
-		do_server_sender(f_in, f_out, argc, argv);
-	} else {
-		do_server_recv(f_in, f_out, argc, argv);
-	}
-	exit_cleanup(0);
-}
-
 
 /*
  * This is called once the connection has been negotiated.  It is used
@@ -529,7 +207,7 @@ void start_server(int f_in, int f_out, int argc, char *argv[])
 int client_run(int f_in, int f_out, pid_t pid, int argc, char *argv[])
 {
 	struct file_list *flist = NULL;
-	int status = 0, status2 = 0;
+	int status = 0;
 	char *local_name = NULL;
 	extern int am_sender;
 	extern int remote_version;
@@ -537,10 +215,10 @@ int client_run(int f_in, int f_out, pid_t pid, int argc, char *argv[])
 	extern int write_batch;
 	extern int read_batch;
 	extern struct file_list *batch_flist;
+	int		n;
+	char	*p;
 
 	cleanup_child_pid = pid;
-	if (read_batch)
-	    flist = batch_flist;
 
 	set_nonblocking(f_in);
 	set_nonblocking(f_out);
@@ -551,13 +229,6 @@ int client_run(int f_in, int f_out, pid_t pid, int argc, char *argv[])
 		io_start_multiplex_in(f_in);
 	
 	if (am_sender) {
-		extern int cvs_exclude;
-		extern int delete_mode;
-		extern int delete_excluded;
-		if (cvs_exclude)
-			add_cvs_excludes();
-		if (delete_mode && !delete_excluded) 
-			send_exclude_list(f_out);
 		if (!read_batch) /*  dw -- don't write to pipe */
 		    flist = send_file_list(f_out,argc,argv);
 		if (verbose > 3) 
@@ -567,12 +238,6 @@ int client_run(int f_in, int f_out, pid_t pid, int argc, char *argv[])
 		if (remote_version >= 24) {
 			/* final goodbye message */		
 			read_int(f_in);
-		}
-		if (pid != -1) {
-			if (verbose > 3)
-				rprintf(FINFO,"client_run waiting on %d\n", (int) pid);
-			io_flush();
-			wait_process(pid, &status);
 		}
 		report(-1);
 		exit_cleanup(status);
@@ -594,18 +259,17 @@ int client_run(int f_in, int f_out, pid_t pid, int argc, char *argv[])
 		exit_cleanup(0);
 	}
 	
-	local_name = get_local_name(flist,argv[0]);
+	// trim off the trailing slash unless it is root
+	p = argv[0];
+	n = strlen(p);
+	if ((n > 1) && (p[n-1] == '/'))
+		p[n-1] = '\0';
+
+	local_name = get_local_name(flist, argv[0]);
 	
-	status2 = do_recv(f_in,f_out,flist,local_name);
+	status = do_recv(f_in,f_out,flist,local_name);
 	
-	if (pid != -1) {
-		if (verbose > 3)
-			rprintf(FINFO,"client_run2 waiting on %d\n", (int) pid);
-		io_flush();
-		wait_process(pid, &status);
-	}
-	
-	return MAX(status, status2);
+	return (status);
 }
 
 static char *find_colon(char *s)
@@ -623,7 +287,7 @@ static char *find_colon(char *s)
 	return p;
 }
 
-
+#ifndef NOSHELLORSERVER
 static int copy_argv (char *argv[])
 {
 	int i;
@@ -779,7 +443,53 @@ static int start_client(int argc, char *argv[])
 	return ret;
 }
 
+#else
 
+/**
+ * Start a client for a rsyncd connection.
+ * Calls start_socket_client for sockets.
+ **/
+static int start_client(int argc, char *argv[])
+{
+	char *p;
+	extern int local_server;
+	extern int am_sender;
+
+	// try for src=host::path
+	p = find_colon(argv[0]);
+
+	if (p) {
+		if (p[1] == ':') { /* double colon */
+			*p = 0;
+			return start_socket_client(argv[0], p+2, argc-1, argv+1);
+		}
+
+		if (argc < 1) {
+			usage(FERROR);
+			exit_cleanup(RERR_SYNTAX);
+		}
+
+		am_sender = 0;
+	} else {
+		am_sender = 1;
+
+		// try for dst=host::path
+		p = find_colon(argv[argc-1]);
+		if (!p) {
+			local_server = 1;
+		} else if (p[1] == ':') {
+			*p = 0;
+			return start_socket_client(argv[argc-1], p+2, argc-1, argv);
+		}
+	}
+
+	usage(FERROR);
+	exit_cleanup(RERR_SYNTAX);
+	return 0;
+}
+#endif
+
+#ifndef NOSHELLORSERVER
 static RETSIGTYPE sigusr1_handler(int UNUSED(val)) {
 	exit_cleanup(RERR_SIGNAL);
 }
@@ -828,19 +538,35 @@ static RETSIGTYPE rsync_panic_handler(int UNUSED(whatsig))
 }
 #endif
 
+#endif
 
 int main(int argc,char *argv[])
 {       
 	extern int am_root;
 	extern int orig_umask;
 	extern int dry_run;
+#ifndef NOSHELLORSERVER
 	extern int am_daemon;
 	extern int am_server;
-	int ret;
 	extern int write_batch;
 	int orig_argc;
 	char **orig_argv;
+#endif
+	int ret;
+#if 0
+	int i, j;
+#endif
 
+#ifdef _WINDOWS
+// main can be called more than once so some housekeeping
+// needs to be done each time to reset initial values
+// for those options that can be modified from the UI
+	extern int am_sender;
+	verbose = 0;
+	am_sender = 0;
+#endif
+
+#ifndef NOSHELLORSERVER
 	orig_argc = argc;
 	orig_argv = argv;
 
@@ -853,8 +579,12 @@ int main(int argc,char *argv[])
 	signal(SIGABRT, rsync_panic_handler);
 	signal(SIGBUS, rsync_panic_handler);
 #endif /* def MAINTAINER_MODE */
+#endif
 
 	starttime = time(NULL);
+#ifdef NOSHELLORSERVER
+	getcwd((char *)init_dir, MAXPATHLEN-1);
+#endif
 	am_root = (getuid() == 0);
 
 	memset(&stats, 0, sizeof(stats));
@@ -868,6 +598,7 @@ int main(int argc,char *argv[])
 	   carried across */
 	orig_umask = (int)umask(0);
 
+#if 1
 	if (!parse_arguments(&argc, (const char ***) &argv, 1)) {
                 /* FIXME: We ought to call the same error-handling
                  * code here, rather than relying on getopt. */
@@ -875,6 +606,35 @@ int main(int argc,char *argv[])
 		exit_cleanup(RERR_SYNTAX);
 	}
 
+#else
+	for (i=1; i<argc; i++)
+	{
+		char *pA;
+		
+		pA = argv[i];
+		if (*pA == '-')
+		{
+			pA++;
+			switch (*pA)
+			{
+			case 'h':
+			case 'H':
+				usage(FERROR);
+				exit_cleanup(RERR_SYNTAX);
+			}
+		}
+		else
+		{
+			// end of options, copy the file designators over argv
+			for (j=0; i<argc; i++, j++)
+				argv[j] = argv[i];
+			argc = j;
+			break;
+		}
+	}
+#endif
+
+#ifndef NOSHELLORSERVER
 	signal(SIGINT,SIGNAL_CAST sig_int);
 	signal(SIGHUP,SIGNAL_CAST sig_int);
 	signal(SIGTERM,SIGNAL_CAST sig_int);
@@ -917,7 +677,8 @@ int main(int argc,char *argv[])
 		set_nonblocking(STDOUT_FILENO);
 		start_server(STDIN_FILENO, STDOUT_FILENO, argc, argv);
 	}
-
+#endif
+	
 	ret = start_client(argc, argv);
 	if (ret == -1) 
 		exit_cleanup(RERR_STARTCLIENT);
@@ -926,4 +687,5 @@ int main(int argc,char *argv[])
 
 	exit(ret);
 	/* NOTREACHED */
+	return(0);
 }
