@@ -29,7 +29,6 @@
 extern int verbose;
 
 
-#ifndef NOSHELLORSERVER
 /****************************************************************************
 Set a fd into nonblocking mode
 ****************************************************************************/
@@ -45,6 +44,7 @@ void set_nonblocking(int fd)
 	}
 }
 
+#ifndef NOSHELLORSERVER
 /****************************************************************************
 Set a fd into blocking mode
 ****************************************************************************/
@@ -554,7 +554,6 @@ int name_to_gid(char *name, gid_t *gid)
 	return 0;
 }
 
-#ifndef NOSHELLORSERVER
 #ifndef F_WRLCK
 #define F_WRLCK 3
 #endif
@@ -575,7 +574,7 @@ int lock_range(int fd, int offset, int len)
 	return fcntl(fd,F_SETLK,&lock) == 0;
 }
 
-
+#ifndef NOSHELLORSERVER
 static void glob_expand_one(char *s, char **argv, int *argc, int maxargs)
 {
 #if !(defined(HAVE_GLOB) && defined(HAVE_GLOB_H))
@@ -644,7 +643,6 @@ void glob_expand(char *base1, char **argv, int *argc, int maxargs)
 }
 #endif
 
-#ifndef NOSHELLORSERVER
 // not used
 /*******************************************************************
   convert a string to lower case
@@ -656,7 +654,6 @@ void strlower(char *s)
 		s++;
 	}
 }
-#endif
 
 void *Realloc(void *p, int size)
 {
@@ -974,8 +971,6 @@ void show_progress(OFF_T ofs, OFF_T size)
 	}
 }
 
-#ifndef NOSHELLORSERVER
-// not used
 /* determine if a symlink points outside the current directory tree */
 int unsafe_symlink(char *dest, char *src)
 {
@@ -1022,7 +1017,6 @@ int unsafe_symlink(char *dest, char *src)
 	free(dest);
 	return (depth < 0);
 }
-#endif
 
 /****************************************************************************
   return the date and time as a string

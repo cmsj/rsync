@@ -50,6 +50,7 @@ void setup_protocol(int f_out,int f_in)
 		}
 	}
 
+//cmsj protocol version debugging: printf("min pver: %d, max pver: %d, remote pver: %d\n", MIN_PROTOCOL_VERSION, MAX_PROTOCOL_VERSION, remote_version);
 	if (remote_version < MIN_PROTOCOL_VERSION ||
 	    remote_version > MAX_PROTOCOL_VERSION) {
 		rprintf(FERROR,"protocol version mismatch - is your shell clean?\n");
