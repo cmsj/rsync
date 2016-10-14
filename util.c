@@ -555,6 +555,12 @@ int name_to_gid(char *name, gid_t *gid)
 }
 
 #ifndef NOSHELLORSERVER
+#ifndef F_WRLCK
+#define F_WRLCK 3
+#endif
+#ifndef F_SETLK
+#define F_SETLK 8
+#endif
 /* lock a byte range in a open file */
 int lock_range(int fd, int offset, int len)
 {

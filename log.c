@@ -27,6 +27,16 @@
   */
 #include "rsync.h"
 
+#ifndef LOG_PID
+#define LOG_PID 0x01
+#endif
+#ifndef LOG_WARNING
+#define LOG_WARNING 4
+#endif
+#ifndef LOG_INFO
+#define LOG_INFO 6
+#endif
+
 static char *logfname;
 static FILE *logfile;
 static int log_error_fd = -1;
@@ -139,7 +149,7 @@ static void logit(int priority, char *buf)
 			timestring(time(NULL)), (int)getpid(), buf);
 		fflush(logfile);
 	} else {
-		syslog(priority, "%s", buf);
+		printf("FakeSyslog: %s\n", buf);
 	}
 }
 
