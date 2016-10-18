@@ -353,10 +353,7 @@ int64 read_longint(int f)
 {
 	extern int remote_version;
 	int64 ret;
-#ifndef NO_INT64
-    // FIXME: cmsj: figure out why this is here
 	char b[8];
-#endif
 	ret = read_int(f);
 
 	if ((int32)ret != (int32)0xffffffff) {
