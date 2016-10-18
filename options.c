@@ -735,7 +735,6 @@ void server_options(char **args,int *argc)
 
 	if (block_size != BLOCK_SIZE) {
 #ifdef NOSHELLORSERVER
-        /* FIXME: cmsj: is this necessary? */
 		if (block_size > CHUNK_SIZE/2)
 			block_size = CHUNK_SIZE/2;
 #endif
