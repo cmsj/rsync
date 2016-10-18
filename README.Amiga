@@ -1,0 +1,32 @@
+1. Introduction.
+
+This is an AmigaOS 3.x (m68k) port of rsync.
+It is based on the MSDOS port of rsync v2.5.5 by Chris Simmonds: http://www.2net.co.uk/rsync.html
+The work to bring this port to AmigaOS was done by Chris Jones <cmsj@tenshu.net>
+
+2. Limitations.
+
+rsync is a complex UNIX program that expects to be forking itself into multiple child processes,
+which is almost completely impossible to do on AmigaOS in the same way that UNIX-like systems do it.
+
+The DOS port on which this is based, replaced several core functions with new implementations that
+do all of the work in a single process, making it suitable for porting to AmigaOS.
+
+However, not all of rsync's features are able to be brought to this port (at least at the moment).
+Some of these are because of limitations in AmigaOS, some are limitations of porting time/skill.
+Please be aware:
+
+  * Cannot run as a server daemon
+  * Does not support transfer of file ownership/permissions
+  * No support for rsh/ssh
+  * No support for rsync:// URIs (use <server>::<module>/ instead)
+  * No support for creating backup files
+  * No support for symlinks
+  * No support for sparse files
+  * No support for include/exclude lists/patterns
+  * No support for data compression
+  * No support for bandwidth limits
+
+3. Usage.
+
+See all the normal documentation for rsync, no additional Amiga features have been added.
