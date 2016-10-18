@@ -27,9 +27,30 @@ struct stats stats;
 
 extern int verbose;
 
+#ifdef NOSHELLORSERVER
 char init_dir[MAXPATHLEN];
+#else
+static void show_malloc_stats(void);
 
-// FIXME: cmsj: There used to be a wait_process() function here. We don't use it, but maybe it can come back to reduce the patch size?
+/****************************************************************************
+wait for a process to exit, calling io_flush while waiting
+****************************************************************************/
+void wait_process(pid_t pid, int *status)
+{
+	while (waitpid(pid, status, WNOHANG) == 0) {
+		msleep(20);
+		io_flush();
+	}
+        
+        /* TODO: If the child exited on a signal, then log an
+         * appropriate error message.  Perhaps we should also accept a
+         * message describing the purpose of the child.  Also indicate
+         * this to the caller so that thhey know something went
+         * wrong.  */
+	*status = WEXITSTATUS(*status);
+}
+
+#endif
 static void report(int f)
 {
 	time_t t = time(NULL);
@@ -42,6 +63,9 @@ static void report(int f)
 
 	if (do_stats) {
 		/* These come out from every process */
+#ifndef NOSHELLORSERVER
+		show_malloc_stats();
+#endif
 		show_flist_stats();
 	}
 
@@ -114,8 +138,124 @@ static void report(int f)
 	fflush(stderr);
 }
 
-// FIXME: cmsj: There used to be a show_malloc_stats() here, with an #ifdef HAVE_MALLINFO. We don't have mallinfo() or use show_malloc_stats() so maybe the code can safely come back to reduce the patch size?
-// FIXME: cmsj: Similarly do_cmd() which we now don't use. And do_server_sender()
+#ifndef NOSHELLORSERVER
+
+/**
+ * If our C library can get malloc statistics, then show them to FINFO
+ **/
+static void show_malloc_stats(void)
+{
+#ifdef HAVE_MALLINFO
+	struct mallinfo mi;
+	extern int am_server;
+	extern int am_sender;
+	extern int am_daemon;
+
+	mi = mallinfo();
+
+	rprintf(FINFO, RSYNC_NAME "[%d] (%s%s%s) heap statistics:\n",
+		getpid(),
+		am_server ? "server " : "",
+		am_daemon ? "daemon " : "",
+		am_sender ? "sender" : "receiver");
+	rprintf(FINFO, "  arena:     %10d   (bytes from sbrk)\n", mi.arena);
+	rprintf(FINFO, "  ordblks:   %10d   (chunks not in use)\n", mi.ordblks);
+	rprintf(FINFO, "  smblks:    %10d\n", mi.smblks);
+	rprintf(FINFO, "  hblks:     %10d   (chunks from mmap)\n", mi.hblks);
+	rprintf(FINFO, "  hblkhd:    %10d   (bytes from mmap)\n", mi.hblkhd);
+	rprintf(FINFO, "  usmblks:   %10d\n", mi.usmblks);
+	rprintf(FINFO, "  fsmblks:   %10d\n", mi.fsmblks);
+	rprintf(FINFO, "  uordblks:  %10d   (bytes used)\n", mi.uordblks);
+	rprintf(FINFO, "  fordblks:  %10d   (bytes free)\n", mi.fordblks);
+	rprintf(FINFO, "  keepcost:  %10d   (bytes in releasable chunk)\n", mi.keepcost);
+#endif /* HAVE_MALLINFO */
+}
+
+
+/* Start the remote shell.   cmd may be NULL to use the default. */
+static pid_t do_cmd(char *cmd,char *machine,char *user,char *path,int *f_in,int *f_out)
+{
+	char *args[100];
+	int i,argc=0;
+	pid_t ret;
+	char *tok,*dir=NULL;
+	extern int local_server;
+	extern char *rsync_path;
+	extern int blocking_io;
+	extern int read_batch;
+
+	if (!read_batch && !local_server) {
+		if (!cmd)
+			cmd = getenv(RSYNC_RSH_ENV);
+		if (!cmd)
+			cmd = RSYNC_RSH;
+		cmd = strdup(cmd);
+		if (!cmd) 
+			goto oom;
+
+		for (tok=strtok(cmd," ");tok;tok=strtok(NULL," ")) {
+			args[argc++] = tok;
+		}
+
+#if HAVE_REMSH
+		/* remsh (on HPUX) takes the arguments the other way around */
+		args[argc++] = machine;
+		if (user) {
+			args[argc++] = "-l";
+			args[argc++] = user;
+		}
+#else
+		if (user) {
+			args[argc++] = "-l";
+			args[argc++] = user;
+		}
+		args[argc++] = machine;
+#endif
+
+		args[argc++] = rsync_path;
+
+		if ((blocking_io == -1) && (strcmp(cmd, RSYNC_RSH) == 0))
+			blocking_io = 1;
+
+		server_options(args,&argc);
+
+	}
+
+	args[argc++] = ".";
+
+	if (path && *path) 
+		args[argc++] = path;
+
+	args[argc] = NULL;
+
+	if (verbose > 3) {
+		rprintf(FINFO,"cmd=");
+		for (i=0;i<argc;i++)
+			rprintf(FINFO,"%s ",args[i]);
+		rprintf(FINFO,"\n");
+	}
+
+	if (local_server) {
+		if (read_batch)
+		    create_flist_from_batch(); /* sets batch_flist */
+		ret = local_child(argc, args, f_in, f_out);
+	} else {
+		ret = piped_child(args,f_in,f_out);
+	}
+
+	if (dir) free(dir);
+
+	return ret;
+
+oom:
+	out_of_memory("do_cmd");
+	return 0; /* not reached */
+}
+
+
+
+
+#endif
 static char *get_local_name(struct file_list *flist,char *name)
 {
 	STRUCT_STAT st;
@@ -224,10 +364,16 @@ int client_run(int f_in, int f_out, pid_t pid, int argc, char *argv[])
 	extern int write_batch;
 	extern int read_batch;
 	extern struct file_list *batch_flist;
+#ifdef NOSHELLORSERVER
 	int n;
 	char *p;
+#endif
 
 	cleanup_child_pid = pid;
+#ifndef NOSHELLORSERVER
+	if (read_batch)
+	    flist = batch_flist;
+#endif
 
 	set_nonblocking(f_in);
 	set_nonblocking(f_out);
@@ -238,6 +384,15 @@ int client_run(int f_in, int f_out, pid_t pid, int argc, char *argv[])
 		io_start_multiplex_in(f_in);
 	
 	if (am_sender) {
+#ifndef NOSHELLORSERVER
+		extern int cvs_exclude;
+		extern int delete_mode;
+		extern int delete_excluded;
+		if (cvs_exclude)
+			add_cvs_excludes();
+		if (delete_mode && !delete_excluded) 
+			send_exclude_list(f_out);
+#endif
 		if (!read_batch) /*  dw -- don't write to pipe */
 		    flist = send_file_list(f_out,argc,argv);
 		if (verbose > 3) 
@@ -248,6 +403,14 @@ int client_run(int f_in, int f_out, pid_t pid, int argc, char *argv[])
 			/* final goodbye message */		
 			read_int(f_in);
 		}
+#ifndef NOSHELLORSERVER
+		if (pid != -1) {
+			if (verbose > 3)
+				rprintf(FINFO,"client_run waiting on %d\n", (int) pid);
+			io_flush();
+			wait_process(pid, &status);
+		}
+#endif
 		report(-1);
 		exit_cleanup(status);
 	}
@@ -268,6 +431,11 @@ int client_run(int f_in, int f_out, pid_t pid, int argc, char *argv[])
 		exit_cleanup(0);
 	}
 	
+#ifndef NOSHELLORSERVER
+	local_name = get_local_name(flist,argv[0]);
+	
+	status2 = do_recv(f_in,f_out,flist,local_name);
+#else
 	// trim off the trailing slash unless it is root
 	p = argv[0];
 	n = strlen(p);
@@ -277,6 +445,7 @@ int client_run(int f_in, int f_out, pid_t pid, int argc, char *argv[])
 	local_name = get_local_name(flist, argv[0]);
 	
 	status = do_recv(f_in,f_out,flist,local_name);
+#endif
 	
 	return (status);
 }
