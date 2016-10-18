@@ -30,3 +30,12 @@ Please be aware:
 3. Usage.
 
 See all the normal documentation for rsync, no additional Amiga features have been added.
+
+4. Building.
+
+This port of rsync builds with ADE 2.95.3 (2015-02-01 from Aminet). I have included the configure
+script and Makefile, so you don't need to fight with autoconf/automake
+
+If you do recreate the Makefile with the configure script, be sure to run it with --disable-ipv6
+(unless your Amiga TCP stack has IPv6 support and a matching SDK available)
+
