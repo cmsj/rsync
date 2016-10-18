@@ -179,12 +179,7 @@ static int get_tmpname(char *fnametmp, char *fname)
 			rprintf(FERROR,"filename too long\n");
 			return 0;
 		}
-#ifdef NOSHELLORSERVER
-        /* FIXME: cmsj: is this necessary? */
-		snprintf(fnametmp,MAXPATHLEN, "%s/TPXXXXXX",tmpdir);
-#else
 		snprintf(fnametmp,MAXPATHLEN, "%s/.%s.XXXXXX",tmpdir,f);
-#endif
 		return 1;
 	} 
 
@@ -197,21 +192,11 @@ static int get_tmpname(char *fnametmp, char *fname)
 
 	if (f) {
 		*f = 0;
-#ifdef NOSHELLORSERVER
-        /* FIXME: cmsj: is this necessary? */
-		snprintf(fnametmp,MAXPATHLEN,"%s/TPXXXXXX", fname);
-#else
 		snprintf(fnametmp,MAXPATHLEN,"%s/.%s.XXXXXX",
 			 fname,f+1);
-#endif
 		*f = '/';
 	} else {
-#ifdef NOSHELLORSERVER
-        /* FIXME: cmsj: is this necessary? */
-		snprintf(fnametmp,MAXPATHLEN,"TPXXXXXX");
-#else
 		snprintf(fnametmp,MAXPATHLEN,".%s.XXXXXX",fname);
-#endif
 	}
 
 	return 1;
