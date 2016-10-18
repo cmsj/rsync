@@ -146,14 +146,6 @@ enum logcode {FNONE=0, FERROR=1, FINFO=2, FLOG=3 };
 #include <sys/filio.h>
 #endif
 
-/* FIXME: cmsj: is this necessary?
-#include	<io.h>
-
-#ifdef NOSHELLORSERVER
-#define getuid() 0
-#endif
-*/
-
 #include <signal.h>
 #ifdef HAVE_SYS_WAIT_H
 #include <sys/wait.h>
