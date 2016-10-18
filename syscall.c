@@ -45,6 +45,7 @@ int do_symlink(char *fname1, char *fname2)
 	CHECK_RO
 	return symlink(fname1, fname2);
 }
+
 #if HAVE_LINK
 int do_link(char *fname1, char *fname2)
 {

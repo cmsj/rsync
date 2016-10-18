@@ -264,6 +264,7 @@ char *auth_server(int fd, int module, char *addr, char *leader)
 
 	return NULL;
 }
+
 #endif
 
 void auth_client(int fd, char *user, char *challenge)

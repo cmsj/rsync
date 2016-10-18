@@ -235,6 +235,7 @@ void sig_int(void)
 }
 #endif
 
+
 /* finish off a file transfer, renaming the file and setting the permissions
    and ownership */
 void finish_transfer(char *fname, char *fnametmp, struct file_struct *file)

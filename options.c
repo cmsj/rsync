@@ -135,7 +135,7 @@ static void print_rsync_version(enum logcode f)
         char const *hardlinks = "no ";
         char const *links = "no ";
 	char const *ipv6 = "no ";
-	STRUCT_STAT *dumstat = NULL;
+	STRUCT_STAT *dumstat;
 
 #ifdef HAVE_SOCKETPAIR
         got_socketpair = "";

@@ -29,6 +29,7 @@ extern int verbose;
 
 char init_dir[MAXPATHLEN];
 
+// FIXME: cmsj: There used to be a wait_process() function here. We don't use it, but maybe it can come back to reduce the patch size?
 static void report(int f)
 {
 	time_t t = time(NULL);
@@ -54,7 +55,7 @@ static void report(int f)
 		if (am_sender && send_stats) {
 			int64 w;
 			/* store total_written in a temporary
-				because write_longint changes it */
+			    because write_longint changes it */
 			w = stats.total_written;
 			write_longint(f,stats.total_read);
 			write_longint(f,w);
@@ -113,6 +114,8 @@ static void report(int f)
 	fflush(stderr);
 }
 
+// FIXME: cmsj: There used to be a show_malloc_stats() here, with an #ifdef HAVE_MALLINFO. We don't have mallinfo() or use show_malloc_stats() so maybe the code can safely come back to reduce the patch size?
+// FIXME: cmsj: Similarly do_cmd() which we now don't use. And do_server_sender()
 static char *get_local_name(struct file_list *flist,char *name)
 {
 	STRUCT_STAT st;
@@ -164,7 +167,10 @@ static char *get_local_name(struct file_list *flist,char *name)
 
 static int do_recv(int f_in,int f_out,struct file_list *flist,char *local_name)
 {
+	int pid;
 	int status=0;
+	int recv_pipe[2];
+	int error_pipe[2];
 	extern int preserve_hard_links;
 	extern int delete_after;
 	extern int recurse;
@@ -197,9 +203,12 @@ static int do_recv(int f_in,int f_out,struct file_list *flist,char *local_name)
 		write_int(f_out, -1);
 	}
 	io_flush();
+
 	return status;
 }
 
+// FIXME: cmsj: There used to be a do_server_recv() here, we don't use it, but maybe it can come back to reduce the patch size?
+// FIXME: cmsj: Similarly start_server()
 /*
  * This is called once the connection has been negotiated.  It is used
  * for rsyncd, remote-shell, and local connections.
@@ -207,7 +216,7 @@ static int do_recv(int f_in,int f_out,struct file_list *flist,char *local_name)
 int client_run(int f_in, int f_out, pid_t pid, int argc, char *argv[])
 {
 	struct file_list *flist = NULL;
-	int status = 0;
+	int status = 0, status2 = 0;
 	char *local_name = NULL;
 	extern int am_sender;
 	extern int remote_version;
@@ -215,8 +224,8 @@ int client_run(int f_in, int f_out, pid_t pid, int argc, char *argv[])
 	extern int write_batch;
 	extern int read_batch;
 	extern struct file_list *batch_flist;
-	int		n;
-	char	*p;
+	int n;
+	char *p;
 
 	cleanup_child_pid = pid;
 
@@ -286,6 +295,7 @@ static char *find_colon(char *s)
 
 	return p;
 }
+
 
 #ifndef NOSHELLORSERVER
 static int copy_argv (char *argv[])
@@ -548,22 +558,12 @@ int main(int argc,char *argv[])
 #ifndef NOSHELLORSERVER
 	extern int am_daemon;
 	extern int am_server;
+	int ret;
 	extern int write_batch;
 	int orig_argc;
 	char **orig_argv;
-#endif
-	int ret;
-#if 0
-	int i, j;
-#endif
-
-#ifdef _WINDOWS
-// main can be called more than once so some housekeeping
-// needs to be done each time to reset initial values
-// for those options that can be modified from the UI
-	extern int am_sender;
-	verbose = 0;
-	am_sender = 0;
+#else
+    int ret;
 #endif
 
 #ifndef NOSHELLORSERVER
@@ -598,41 +598,12 @@ int main(int argc,char *argv[])
 	   carried across */
 	orig_umask = (int)umask(0);
 
-#if 1
 	if (!parse_arguments(&argc, (const char ***) &argv, 1)) {
                 /* FIXME: We ought to call the same error-handling
                  * code here, rather than relying on getopt. */
 		option_error();
 		exit_cleanup(RERR_SYNTAX);
 	}
-
-#else
-	for (i=1; i<argc; i++)
-	{
-		char *pA;
-		
-		pA = argv[i];
-		if (*pA == '-')
-		{
-			pA++;
-			switch (*pA)
-			{
-			case 'h':
-			case 'H':
-				usage(FERROR);
-				exit_cleanup(RERR_SYNTAX);
-			}
-		}
-		else
-		{
-			// end of options, copy the file designators over argv
-			for (j=0; i<argc; i++, j++)
-				argv[j] = argv[i];
-			argc = j;
-			break;
-		}
-	}
-#endif
 
 #ifndef NOSHELLORSERVER
 	signal(SIGINT,SIGNAL_CAST sig_int);
@@ -677,8 +648,8 @@ int main(int argc,char *argv[])
 		set_nonblocking(STDOUT_FILENO);
 		start_server(STDIN_FILENO, STDOUT_FILENO, argc, argv);
 	}
+
 #endif
-	
 	ret = start_client(argc, argv);
 	if (ret == -1) 
 		exit_cleanup(RERR_STARTCLIENT);

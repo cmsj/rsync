@@ -51,6 +51,7 @@ void _exit_cleanup(int code, const char *file, int line)
 	signal(SIGUSR1, SIG_IGN);
 	signal(SIGUSR2, SIG_IGN);
 #endif
+
 	if (verbose > 3)
 		rprintf(FINFO,"_exit_cleanup(code=%d, file=%s, line=%d): entered\n", 
 			code, file, line);
@@ -64,6 +65,7 @@ void _exit_cleanup(int code, const char *file, int line)
 		}
 	}
 #endif
+
 	if (cleanup_got_literal && cleanup_fname && keep_partial) {
 		char *fname = cleanup_fname;
 		cleanup_fname = NULL;
@@ -99,13 +101,7 @@ void _exit_cleanup(int code, const char *file, int line)
 
 #ifdef NOSHELLORSERVER
 	chdir((char *)&init_dir[0]);
-    /* FIXME: cmsj: WSACleanup() was called here. Anything to do for bsdsocket.library? */
 #endif
-    /* Unsure what this does exactly
-#ifdef _WINDOWS
-	exitToCaller(code);
-#endif
-    */
 	exit(code);
 }
 

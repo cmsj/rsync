@@ -223,6 +223,7 @@ static int read_timeout (int fd, char *buf, size_t len)
 #else
 		n = read(fd, buf, len);
 #endif
+
 		if (n > 0) {
 			buf += n;
 			len -= n;
@@ -451,6 +452,7 @@ static void writefd_unbuffered(int fd,char *buf,size_t len)
 #else
 			ret = write(fd,buf+total,n);
 #endif
+
 			if (ret == -1 && errno == EINTR) {
 				continue;
 			}

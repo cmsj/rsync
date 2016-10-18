@@ -165,6 +165,7 @@ int start_socket_client(char *host, char *path, int argc, char *argv[])
 }
 
 
+
 #ifndef NOSHELLORSERVER
 static int rsync_module(int fd, int i)
 {
