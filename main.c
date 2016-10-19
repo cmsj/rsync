@@ -382,6 +382,17 @@ static int do_recv(int f_in,int f_out,struct file_list *flist,char *local_name)
 		}
 	}
 
+#ifndef NOSHELLORSERVER
+	if (fd_pair(recv_pipe) < 0) {
+		rprintf(FERROR,"pipe failed in do_recv\n");
+		exit_cleanup(RERR_SOCKETIO);
+	}
+
+	if (fd_pair(error_pipe) < 0) {
+		rprintf(FERROR,"error pipe failed in do_recv\n");
+		exit_cleanup(RERR_SOCKETIO);
+	}
+#else
 	// send the checksums and ensure local permissions
 	generate_files_phase1(f_out,flist,local_name);
 
@@ -389,6 +400,8 @@ static int do_recv(int f_in,int f_out,struct file_list *flist,char *local_name)
 	recv_gen_files(f_in,f_out,flist,local_name);
 	io_flush();
 	report(f_in);
+#endif
+
 	io_flush();
 
 	io_start_buffering(f_out);
