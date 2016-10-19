@@ -392,6 +392,37 @@ static int do_recv(int f_in,int f_out,struct file_list *flist,char *local_name)
 		rprintf(FERROR,"error pipe failed in do_recv\n");
 		exit_cleanup(RERR_SOCKETIO);
 	}
+
+	io_flush();
+
+	if ((pid=do_fork()) == 0) {
+		close(recv_pipe[0]);
+		close(error_pipe[0]);
+		if (f_in != f_out) close(f_out);
+
+		/* we can't let two processes write to the socket at one time */
+		io_multiplexing_close();
+
+		/* set place to send errors */
+		set_error_fd(error_pipe[1]);
+
+		recv_files(f_in,flist,local_name,recv_pipe[1]);
+		io_flush();
+		report(f_in);
+
+		write_int(recv_pipe[1],1);
+		close(recv_pipe[1]);
+		io_flush();
+		/* finally we go to sleep until our parent kills us
+		   with a USR2 signal. We sleep for a short time as on
+		   some OSes a signal won't interrupt a sleep! */
+		while (msleep(20))
+			;
+	}
+
+	close(recv_pipe[1]);
+	close(error_pipe[1]);
+	if (f_in != f_out) close(f_in);
 #else
 	// send the checksums and ensure local permissions
 	generate_files_phase1(f_out,flist,local_name);
@@ -400,11 +431,19 @@ static int do_recv(int f_in,int f_out,struct file_list *flist,char *local_name)
 	recv_gen_files(f_in,f_out,flist,local_name);
 	io_flush();
 	report(f_in);
+	io_flush();
 #endif
 
-	io_flush();
-
 	io_start_buffering(f_out);
+
+#ifndef NOSHELLORSERVER
+	io_set_error_fd(error_pipe[0]);
+
+	generate_files(f_out,flist,local_name,recv_pipe[0]);
+
+	read_int(recv_pipe[0]);
+	close(recv_pipe[0]);
+#endif
 
 	if (remote_version >= 24) {
 		/* send a final goodbye message */
@@ -412,6 +451,10 @@ static int do_recv(int f_in,int f_out,struct file_list *flist,char *local_name)
 	}
 	io_flush();
 
+#ifndef NOSHELLORSERVER
+	kill(pid, SIGUSR2);
+	wait_process(pid, &status);
+#endif
 	return status;
 }
 
