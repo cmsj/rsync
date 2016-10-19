@@ -392,7 +392,7 @@ static int do_recv(int f_in,int f_out,struct file_list *flist,char *local_name)
 		rprintf(FERROR,"error pipe failed in do_recv\n");
 		exit_cleanup(RERR_SOCKETIO);
 	}
-	
+  
 	io_flush();
 
 	if ((pid=do_fork()) == 0) {
