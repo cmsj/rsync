@@ -195,6 +195,9 @@ enum logcode {FNONE=0, FERROR=1, FINFO=2, FLOG=3 };
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#ifndef NOSHELLORSERVER
+#include <syslog.h>
+#endif
 #include <sys/file.h>
 
 #if HAVE_DIRENT_H

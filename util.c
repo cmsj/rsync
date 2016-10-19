@@ -227,6 +227,7 @@ pid_t local_child(int argc, char **argv,int *f_in,int *f_out)
 
 #endif
 
+
 void out_of_memory(char *str)
 {
   rprintf(FERROR,"ERROR: out of memory in %s\n",str);
@@ -483,6 +484,7 @@ int robust_rename(char *from, char *to)
 #endif
 }
 
+
 #ifndef NOSHELLORSERVER
 static pid_t all_pids[10];
 static int num_pids;
@@ -526,6 +528,7 @@ void kill_all(int sig)
 		kill(p, sig);
 	}
 }
+
 #endif
 
 /* turn a user name into a uid */
@@ -554,6 +557,7 @@ int name_to_gid(char *name, gid_t *gid)
 	return 0;
 }
 
+
 #ifndef F_WRLCK
 #define F_WRLCK 3
 #endif
@@ -573,6 +577,7 @@ int lock_range(int fd, int offset, int len)
 	
 	return fcntl(fd,F_SETLK,&lock) == 0;
 }
+
 
 #ifndef NOSHELLORSERVER
 static void glob_expand_one(char *s, char **argv, int *argc, int maxargs)
@@ -643,7 +648,6 @@ void glob_expand(char *base1, char **argv, int *argc, int maxargs)
 }
 #endif
 
-// not used
 /*******************************************************************
   convert a string to lower case
 ********************************************************************/
@@ -1017,6 +1021,7 @@ int unsafe_symlink(char *dest, char *src)
 	free(dest);
 	return (depth < 0);
 }
+
 
 /****************************************************************************
   return the date and time as a string

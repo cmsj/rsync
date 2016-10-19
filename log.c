@@ -36,7 +36,6 @@
 #ifndef LOG_INFO
 #define LOG_INFO 6
 #endif
-
 static char *logfname;
 static FILE *logfile;
 static int log_error_fd = -1;
@@ -149,12 +148,15 @@ static void logit(int priority, char *buf)
 			timestring(time(NULL)), (int)getpid(), buf);
 		fflush(logfile);
 	} else {
+#ifndef NOSHELLORSERVER
+		syslog(priority, "%s", buf);
+#else
 		printf("FakeSyslog: %s\n", buf);
+#endif
 	}
 }
 
 #ifdef NOSHELLORSERVER
-// not used
 void log_init(void)
 {
 	static int initialised;

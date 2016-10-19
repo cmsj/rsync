@@ -18,13 +18,11 @@
 */
 
 #include "rsync.h"
-
 #ifndef NOSHELLORSERVER
 #include "zlib/zlib.h"
 
 extern int do_compression;
 static int compression_level = Z_DEFAULT_COMPRESSION;
-
 #endif
 
 /* determine the compression level based on a wildcard filename list */
@@ -121,6 +119,7 @@ static void simple_send_token(int f,int token,
 		}
 	}
 }
+
 
 #ifndef NOSHELLORSERVER
 /* Flag bytes in compressed stream are encoded as follows: */
@@ -522,7 +521,6 @@ void see_token(char *data, int toklen)
 	if (do_compression)
 		see_deflate_token(data, toklen);
 }
-
 #else
 
 /*

@@ -351,9 +351,9 @@ static void do_server_sender(int f_in, int f_out, int argc,char *argv[])
 	io_flush();
 	report(f_out);
 	if (remote_version >= 24) {
-		/* final goodbye message */
-		read_int(f_in);
-	}
+		/* final goodbye message */		
+ 		read_int(f_in);
+ 	}
 	io_flush();
 	exit_cleanup(0);
 }
@@ -457,8 +457,98 @@ static int do_recv(int f_in,int f_out,struct file_list *flist,char *local_name)
 	return status;
 }
 
-// FIXME: cmsj: There used to be a do_server_recv() here, we don't use it, but maybe it can come back to reduce the patch size?
-// FIXME: cmsj: Similarly start_server()
+
+#ifndef NOSHELLORSERVER
+static void do_server_recv(int f_in, int f_out, int argc,char *argv[])
+{
+	int status;
+	struct file_list *flist;
+	char *local_name=NULL;
+	char *dir = NULL;
+	extern int delete_mode;
+	extern int delete_excluded;
+	extern int am_daemon;
+	extern int module_id;
+	extern int am_sender;
+	extern int read_batch;
+	extern struct file_list *batch_flist;
+
+	if (verbose > 2)
+		rprintf(FINFO,"server_recv(%d) starting pid=%d\n",argc,(int)getpid());
+
+	if (am_daemon && lp_read_only(module_id) && !am_sender) {
+		rprintf(FERROR,"ERROR: module is read only\n");
+		exit_cleanup(RERR_SYNTAX);
+		return;
+	}
+
+	
+	if (argc > 0) {
+		dir = argv[0];
+		argc--;
+		argv++;
+		if (!am_daemon && !push_dir(dir, 0)) {
+			rprintf(FERROR,"push_dir %s : %s (4)\n",
+				dir,strerror(errno));
+			exit_cleanup(RERR_FILESELECT);
+		}    
+	}
+
+	if (delete_mode && !delete_excluded)
+		recv_exclude_list(f_in);
+
+	if (read_batch)
+	    flist = batch_flist;
+	else
+	    flist = recv_file_list(f_in);
+	if (!flist) {
+		rprintf(FERROR,"server_recv: recv_file_list error\n");
+		exit_cleanup(RERR_FILESELECT);
+	}
+	
+	if (argc > 0) {    
+		if (strcmp(dir,".")) {
+			argv[0] += strlen(dir);
+			if (argv[0][0] == '/') argv[0]++;
+		}
+		local_name = get_local_name(flist,argv[0]);
+	}
+
+	status = do_recv(f_in,f_out,flist,local_name);
+	exit_cleanup(status);
+}
+
+
+void start_server(int f_in, int f_out, int argc, char *argv[])
+{
+	extern int cvs_exclude;
+	extern int am_sender;
+	extern int remote_version;
+	extern int read_batch;
+
+	setup_protocol(f_out, f_in);
+
+	set_nonblocking(f_in);
+	set_nonblocking(f_out);
+
+	if (remote_version >= 23)
+		io_start_multiplex_out(f_out);
+
+	if (am_sender) {
+		if (!read_batch) {
+		    recv_exclude_list(f_in);
+		    if (cvs_exclude)
+			add_cvs_excludes();
+		}
+		do_server_sender(f_in, f_out, argc, argv);
+	} else {
+		do_server_recv(f_in, f_out, argc, argv);
+	}
+	exit_cleanup(0);
+}
+#endif
+
+
 /*
  * This is called once the connection has been negotiated.  It is used
  * for rsyncd, remote-shell, and local connections.
@@ -545,6 +635,13 @@ int client_run(int f_in, int f_out, pid_t pid, int argc, char *argv[])
 	local_name = get_local_name(flist,argv[0]);
 	
 	status2 = do_recv(f_in,f_out,flist,local_name);
+	
+	if (pid != -1) {
+		if (verbose > 3)
+			rprintf(FINFO,"client_run2 waiting on %d\n", (int) pid);
+		io_flush();
+		wait_process(pid, &status);
+	}
 #else
 	// trim off the trailing slash unless it is root
 	p = argv[0];
@@ -553,11 +650,11 @@ int client_run(int f_in, int f_out, pid_t pid, int argc, char *argv[])
 		p[n-1] = '\0';
 
 	local_name = get_local_name(flist, argv[0]);
-	
+
 	status = do_recv(f_in,f_out,flist,local_name);
 #endif
 	
-	return (status);
+	return MAX(status, status2);
 }
 
 static char *find_colon(char *s)
@@ -937,5 +1034,4 @@ int main(int argc,char *argv[])
 
 	exit(ret);
 	/* NOTREACHED */
-	return(0);
 }

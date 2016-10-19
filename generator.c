@@ -474,6 +474,7 @@ void recv_generator(char *fname,struct file_list *flist,int i,int f_out)
 }
 
 
+
 #ifdef NOSHELLORSERVER
 void generate_files_phase1(int f,struct file_list *flist,char *local_name)
 {
